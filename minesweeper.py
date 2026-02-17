@@ -6,20 +6,24 @@ class Board:
         self.grid_structure = [[Cell() for i in range(self.grid_scale)] for j in range(self.grid_scale)] # martiz de objetos Cell.
         self.mines_proportion = 0.20
         self.mines_pos_list = [] # Position of all the mines.
+        self.total_safe_cells = int
         self.displacements = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)] # Displacements to the 8 adjacent Cell.
         self.set_mines()
         self.calculate_mines()
 
     def set_mines(self):
         mine = round((self.grid_scale ** 2) * self.mines_proportion)
+        total_mines = 0
         for i in range(mine):
             x = random.randint(1, self.grid_scale) - 1
             y = random.randint(1, self.grid_scale) - 1
             if self.grid_structure[x][y].has_mine == False:
                 self.mines_pos_list.append((x, y))
                 self.grid_structure[x][y].has_mine = True
+                total_mines += 1
             else:
                 i -= 1
+        self.total_safe_cells = (self.grid_scale ** 2) - total_mines
 
     def adjacent_cells(self, row, column):
         adjacente_cell = []
@@ -44,48 +48,53 @@ class Cell:
         self.flag_marked = False # fue marcada.
         self.surrounding_mines = int # mians al rededor.
 
-class Winner:
-    def victory_conditions(self):
-        # condiciones victoria.
-        # condiciones derrota.
-        pass
-
 class GameLogic:# logic
     def __init__(self, board: Board):
-        # q pasa al revelarse una Cell.
+        # que pasa al revelarse una Cell.
         # revelar celdas vacias automaticamente.
-        # decide cuando se gana.
-        # decide cuando se pierde.
         self.board = board
+        self.revealed_safe_mines_left = self.board.total_safe_cells
+        self.game_won = False
+        self.game_lost = False
 
-    def set_mark(self):
-        try:
-            mark_x = int(input("X: ")) - 1
-            mark_y = int(input("y: ")) - 1 
+    def set_mark(self): 
+    #set_mark(self, x, y): for GUI imput.
+        try: # Check case for (0, 0).
+            x = int(input("X: ")) - 1
+            y = int(input("y: ")) - 1
 
-            if self.board.grid_structure[mark_x][mark_y].has_mine == False:
-                self.board.grid_structure[mark_x][mark_y].revealed = True
-                return 1
+            if self.board.grid_structure[x][y].has_mine == False:
+                self.board.grid_structure[x][y].revealed = True
+                self.revealed_safe_mines_left -= 1
             else:
-                print("Lost")
-                return 0
+                self.game_lost = True
         except IndexError:
             print("Out of range.")
 
+    def auto_reveal(self): pass # for cells adjacent without mines.
+
+    def win_check(self):
+        if self.revealed_safe_mines_left == 0:
+            self.game_won = True
+
 class Game:
     def __init__(self):
-        self.game_state = bool
         self.dim = 10
         self.board = Board(self.dim)
         self.logic = GameLogic(self.board)
 
-    # llama eventos: logic, winner.
-    # estado del juego.
     def loop(self):
-        self.game_state = 1
-        while self.game_state == 1:
-            self.temporal_show()
-            self.game_state = self.logic.set_mark()
+        self.temporal_show()
+        while self.logic.game_won == False and self.logic.game_lost == False:
+                self.logic.set_mark()
+                self.temporal_show()
+                self.logic.win_check()
+                if self.logic.game_won == True:
+                    print("Won!")
+                    return
+                if self.logic.game_lost == True:
+                    print("Lost")
+                    return
 
     def temporal_show(self):
         for i in range(self.dim):
