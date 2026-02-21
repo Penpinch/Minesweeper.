@@ -14,44 +14,43 @@ class Board:
     def set_mines(self):
         mine = round((self.grid_scale ** 2) * self.mines_proportion)
         total_mines = 0
-        for i in range(mine):
-            x = random.randint(1, self.grid_scale) - 1
-            y = random.randint(1, self.grid_scale) - 1
-            if self.grid_structure[x][y].has_mine == False:
+
+        while total_mines < mine:
+            x = random.randint(0, self.grid_scale - 1)
+            y = random.randint(0, self.grid_scale - 1)
+            if not self.grid_structure[x][y].has_mine:
                 self.mines_pos_list.append((x, y))
                 self.grid_structure[x][y].has_mine = True
                 total_mines += 1
-            else:
-                i -= 1
         self.total_safe_cells = (self.grid_scale ** 2) - total_mines
 
     def adjacent_cells(self, row, column):
         adjacente_cell = []
+        adjacent_cells_coords = []
         for displac_row, displac_column in self.displacements:
             new_row, new_column = row + displac_row, column + displac_column
             # Within limits.
             if 0 <= new_row < len(self.grid_structure) and 0 <= new_column < len(self.grid_structure[0]):
                 adjacente_cell.append(self.grid_structure[new_row][new_column])
-        return adjacente_cell
+                adjacent_cells_coords.append((new_row, new_column))
+        return adjacente_cell, adjacent_cells_coords
     
     def calculate_mines(self):
         for row in range(self.grid_scale):
             for col in range(self.grid_scale):
-                cells_list:list[Cell] = self.adjacent_cells(row, col)
+                cells_list, cell_coords = self.adjacent_cells(row, col)
                 cont = sum(cell.has_mine for cell in cells_list)
                 self.grid_structure[row][col].surrounding_mines = cont
 
 class Cell:
     def __init__(self):
-        self.has_mine = False # tiene mina.
-        self.revealed = False # la Cell es visible.
-        self.flag_marked = False # fue marcada.
-        self.surrounding_mines = int # mians al rededor.
+        self.has_mine = False # Has mine.
+        self.revealed = False # Cell is visible.
+        self.flag_marked = False # Was marked.
+        self.surrounding_mines = int # Number of djacent mines.
 
-class GameLogic:# logic
+class GameLogic:# :ogic.
     def __init__(self, board: Board):
-        # que pasa al revelarse una Cell.
-        # revelar celdas vacias automaticamente.
         self.board = board
         self.revealed_safe_mines_left = self.board.total_safe_cells
         self.game_won = False
@@ -62,16 +61,29 @@ class GameLogic:# logic
         try: # Check case for (0, 0).
             x = int(input("X: ")) - 1
             y = int(input("y: ")) - 1
+            return self.board.grid_structure[x][y], (x, y)
+        except (IndexError, ValueError):
+            print("Invalid input or out of range.")
+            return None, None
 
-            if self.board.grid_structure[x][y].has_mine == False:
-                self.board.grid_structure[x][y].revealed = True
+    def auto_reveal(self, cell: Cell, coord): # Until a Cell have at least one adjacent mine.
+        if cell is None or coord is None:
+            return
+        row, col = coord
+
+        if cell.has_mine:
+            self.game_lost = True
+            return
+
+        if not cell.revealed:
+            cell.revealed = True
+            if not cell.has_mine:
                 self.revealed_safe_mines_left -= 1
-            else:
-                self.game_lost = True
-        except IndexError:
-            print("Out of range.")
 
-    def auto_reveal(self): pass # for cells adjacent without mines.
+            if cell.surrounding_mines == 0:
+                cells_list, coords_list = self.board.adjacent_cells(row, col)
+                for nei_cell, nei_coord in zip(cells_list, coords_list):
+                    self.auto_reveal(nei_cell, nei_coord)
 
     def win_check(self):
         if self.revealed_safe_mines_left == 0:
@@ -79,20 +91,22 @@ class GameLogic:# logic
 
 class Game:
     def __init__(self):
-        self.dim = 10
+        self.dim = 7
         self.board = Board(self.dim)
         self.logic = GameLogic(self.board)
 
     def loop(self):
         self.temporal_show()
-        while self.logic.game_won == False and self.logic.game_lost == False:
-                self.logic.set_mark()
+        while not self.logic.game_won and not self.logic.game_lost:
+                cell, coord = self.logic.set_mark()
+                self.logic.auto_reveal(cell, coord)
+                print("\033c", end = "")
                 self.temporal_show()
                 self.logic.win_check()
-                if self.logic.game_won == True:
+                if self.logic.game_won:
                     print("Won!")
                     return
-                if self.logic.game_lost == True:
+                if self.logic.game_lost:
                     print("Lost")
                     return
 
@@ -102,7 +116,7 @@ class Game:
             for j in range(self.dim):
                 if self.board.grid_structure[i][j].has_mine:
                     fila.append("x")
-                elif self.board.grid_structure[i][j].has_mine == False and self.board.grid_structure[i][j].revealed == True:
+                elif not self.board.grid_structure[i][j].has_mine and self.board.grid_structure[i][j].revealed:
                     fila.append(str(self.board.grid_structure[i][j].surrounding_mines)) # revelada.
                 else:
                     fila.append("▢")
