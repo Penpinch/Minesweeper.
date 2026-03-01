@@ -1,4 +1,10 @@
 import random
+from panda3d.core import loadPrcFileData
+from panda3d.core import LineSegs, NodePath
+from direct.showbase.ShowBase import ShowBase
+
+loadPrcFileData("", "win-size 1000 1000")
+loadPrcFileData("", "window-title Minesweeper")
 
 class Board:
     def __init__(self, grid_scale):
@@ -89,7 +95,7 @@ class GameLogic:# :ogic.
         if self.revealed_safe_mines_left == 0:
             self.game_won = True
 
-class Game:
+class Game_:
     def __init__(self):
         self.dim = 7
         self.board = Board(self.dim)
@@ -101,8 +107,8 @@ class Game:
                 cell, coord = self.logic.set_mark()
                 self.logic.auto_reveal(cell, coord)
                 print("\033c", end = "")
-                self.temporal_show()
                 self.logic.win_check()
+                self.temporal_show()
                 if self.logic.game_won:
                     print("Won!")
                     return
@@ -115,12 +121,63 @@ class Game:
             fila = []
             for j in range(self.dim):
                 if self.board.grid_structure[i][j].has_mine:
-                    fila.append("x")
+                    fila.append("▢")
                 elif not self.board.grid_structure[i][j].has_mine and self.board.grid_structure[i][j].revealed:
                     fila.append(str(self.board.grid_structure[i][j].surrounding_mines)) # revelada.
                 else:
                     fila.append("▢")
             print(" ".join(fila))
 
+class Game(ShowBase):
+    def __init__(self):
+        super().__init__()
+
+        self.dim = 15
+        self.margin = 0.1
+        self.board = Board(self.dim)
+        self.logic = GameLogic(self.board)
+
+        self.grid = self.create_grid(self.dim, self.margin)
+        self.grid.reparentTo(self.render2d)
+        self.accept("s", self.userExit)
+
+    def create_grid(self, divisions, margin):
+        lines = LineSegs()
+        lines.setThickness(1.5)
+        lines.setColor(0, 0, 0, 1)
+
+        aspect = self.getAspectRatio()
+
+        left = -aspect
+        right = aspect
+        bottom = -1
+        top = 1
+
+        width = right - left
+        height = top - bottom
+
+        left += width * margin
+        right -= width * margin
+        bottom += height * margin
+        top -= height * margin
+
+        step_x = (right - left) / divisions
+        step_z = (top - bottom) / divisions
+
+        # líneas verticales
+        for i in range(divisions + 1):
+            x = left + i * step_x
+            lines.moveTo(x, 0, bottom)
+            lines.drawTo(x, 0, top)
+
+        # líneas horizontales
+        for i in range(divisions + 1):
+            z = bottom + i * step_z
+            lines.moveTo(left, 0, z)
+            lines.drawTo(right, 0, z)
+
+        node = lines.create()
+        return NodePath(node)
+        
 game = Game()
-game.loop()
+game.run()
